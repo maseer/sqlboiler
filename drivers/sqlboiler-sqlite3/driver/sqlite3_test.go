@@ -13,8 +13,9 @@ import (
 	"time"
 
 	"github.com/stretchr/testify/require"
-	"github.com/volatiletech/sqlboiler/v4/drivers"
 	_ "modernc.org/sqlite"
+
+	"github.com/volatiletech/sqlboiler/v4/drivers"
 )
 
 var (
@@ -51,7 +52,7 @@ func TestDriver(t *testing.T) {
 		{
 			name: "default",
 			config: drivers.Config{
-				"dbname": tmpName,
+				DBName: tmpName,
 			},
 			goldenJson: "sqlite3.golden.json",
 		},

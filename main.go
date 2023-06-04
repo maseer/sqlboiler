@@ -10,6 +10,7 @@ import (
 	"github.com/friendsofgo/errors"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
+
 	"github.com/volatiletech/sqlboiler/v4/boilingcore"
 	"github.com/volatiletech/sqlboiler/v4/drivers"
 	"github.com/volatiletech/sqlboiler/v4/importers"
@@ -139,7 +140,7 @@ func (c commandFailure) Error() string {
 	return string(c)
 }
 
-func preRun(cmd *cobra.Command, args []string) error {
+func preRun(_ *cobra.Command, args []string) error {
 	var err error
 
 	if len(args) == 0 {
@@ -198,20 +199,21 @@ func preRun(cmd *cobra.Command, args []string) error {
 		fmt.Fprintln(os.Stderr, "using driver:", driverPath)
 	}
 
-	// Configure the driver
-	cmdConfig.DriverConfig = map[string]interface{}{
-		"whitelist":        viper.GetStringSlice(driverName + ".whitelist"),
-		"blacklist":        viper.GetStringSlice(driverName + ".blacklist"),
-		"add-enum-types":   cmdConfig.AddEnumTypes,
-		"enum-null-prefix": cmdConfig.EnumNullPrefix,
-	}
-
-	keys := allKeys(driverName)
-	for _, key := range keys {
-		if key != "blacklist" && key != "whitelist" {
-			prefixedKey := fmt.Sprintf("%s.%s", driverName, key)
-			cmdConfig.DriverConfig[key] = viper.Get(prefixedKey)
-		}
+	loadMissingConfigFromEnvs(driverName)
+	cmdConfig.DriverConfig = drivers.Config{
+		User:           viper.GetString(driverName + ".user"),
+		Pass:           viper.GetString(driverName + ".pass"),
+		Host:           viper.GetString(driverName + ".host"),
+		Port:           viper.GetInt(driverName + ".port"),
+		DBName:         viper.GetString(driverName + ".dbname"),
+		SSLMode:        viper.GetString(driverName + ".sslmode"),
+		BlackList:      viper.GetStringSlice(driverName + ".blacklist"),
+		WhiteList:      viper.GetStringSlice(driverName + ".whitelist"),
+		Schema:         viper.GetString(driverName + ".schema"),
+		AddEnumTypes:   cmdConfig.AddEnumTypes,
+		EnumNullPrefix: cmdConfig.EnumNullPrefix,
+		Concurrency:    viper.GetInt(driverName + ".concurrency"),
+		TinyIntAsInt:   viper.GetBool(driverName + ".tinyint_as_int"),
 	}
 
 	cmdConfig.Imports = configureImports()
@@ -264,29 +266,16 @@ func postRun(cmd *cobra.Command, args []string) error {
 	return cmdState.Cleanup()
 }
 
-func allKeys(prefix string) []string {
-	keys := make(map[string]bool)
-
+func loadMissingConfigFromEnvs(prefix string) {
 	prefix += "."
 
 	for _, e := range os.Environ() {
 		splits := strings.SplitN(e, "=", 2)
 		key := strings.ReplaceAll(strings.ToLower(splits[0]), "_", ".")
+		value := splits[1]
 
-		if strings.HasPrefix(key, prefix) {
-			keys[strings.ReplaceAll(key, prefix, "")] = true
+		if !viper.IsSet(key) {
+			viper.Set(key, value)
 		}
 	}
-
-	for _, key := range viper.AllKeys() {
-		if strings.HasPrefix(key, prefix) {
-			keys[strings.ReplaceAll(key, prefix, "")] = true
-		}
-	}
-
-	keySlice := make([]string, 0, len(keys))
-	for k := range keys {
-		keySlice = append(keySlice, k)
-	}
-	return keySlice
 }

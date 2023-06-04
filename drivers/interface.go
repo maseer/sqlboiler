@@ -7,26 +7,12 @@ import (
 	"sync"
 
 	"github.com/friendsofgo/errors"
-	"github.com/volatiletech/sqlboiler/v4/importers"
 	"github.com/volatiletech/strmangle"
+
+	"github.com/volatiletech/sqlboiler/v4/importers"
 )
 
-// These constants are used in the config map passed into the driver
 const (
-	ConfigBlacklist      = "blacklist"
-	ConfigWhitelist      = "whitelist"
-	ConfigSchema         = "schema"
-	ConfigAddEnumTypes   = "add-enum-types"
-	ConfigEnumNullPrefix = "enum-null-prefix"
-	ConfigConcurrency    = "concurrency"
-
-	ConfigUser    = "user"
-	ConfigPass    = "pass"
-	ConfigHost    = "host"
-	ConfigPort    = "port"
-	ConfigDBName  = "dbname"
-	ConfigSSLMode = "sslmode"
-
 	// DefaultConcurrency defines the default amount of threads to use when loading tables info
 	DefaultConcurrency = 10
 )

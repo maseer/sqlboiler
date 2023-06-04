@@ -29,6 +29,7 @@ import (
 	"os"
 	"os/exec"
 	"regexp"
+	"strconv"
 	"testing"
 
 	"github.com/volatiletech/sqlboiler/v4/drivers"
@@ -58,14 +59,18 @@ func TestDriver(t *testing.T) {
 	}
 	t.Logf("mssql output:\n%s\n", out.Bytes())
 
+	port, err := strconv.Atoi(envPort)
+	if err != nil {
+		t.Fatal(err)
+	}
 	config := drivers.Config{
-		"user":    envUsername,
-		"pass":    envPassword,
-		"dbname":  envDatabase,
-		"host":    envHostname,
-		"port":    envPort,
-		"sslmode": "disable",
-		"schema":  "dbo",
+		User:    envUsername,
+		Pass:    envPassword,
+		DBName:  envDatabase,
+		Host:    envHostname,
+		Port:    port,
+		SSLMode: "disable",
+		Schema:  "dbo",
 	}
 
 	p := &MSSQLDriver{}

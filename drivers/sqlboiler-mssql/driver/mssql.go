@@ -12,9 +12,10 @@ import (
 	// Side effect import go-mssqldb
 	"github.com/friendsofgo/errors"
 	_ "github.com/microsoft/go-mssqldb"
+	"github.com/volatiletech/strmangle"
+
 	"github.com/volatiletech/sqlboiler/v4/drivers"
 	"github.com/volatiletech/sqlboiler/v4/importers"
-	"github.com/volatiletech/strmangle"
 )
 
 //go:embed override
@@ -71,19 +72,12 @@ func (m *MSSQLDriver) Assemble(config drivers.Config) (dbinfo *drivers.DBInfo, e
 		}
 	}()
 
-	user := config.MustString(drivers.ConfigUser)
-	pass, _ := config.String(drivers.ConfigPass)
-	dbname := config.MustString(drivers.ConfigDBName)
-	host := config.MustString(drivers.ConfigHost)
-	port := config.DefaultInt(drivers.ConfigPort, 1433)
-	sslmode := config.DefaultString(drivers.ConfigSSLMode, "true")
+	if err := validateDriverConfig(config); err != nil {
+		panic(errors.Wrap(err, "validate driver config"))
+	}
+	fillDefaultDriverConfig(&config)
 
-	schema := config.DefaultString(drivers.ConfigSchema, "dbo")
-	whitelist, _ := config.StringSlice(drivers.ConfigWhitelist)
-	blacklist, _ := config.StringSlice(drivers.ConfigBlacklist)
-	concurrency := config.DefaultInt(drivers.ConfigConcurrency, drivers.DefaultConcurrency)
-
-	m.connStr = MSSQLBuildQueryString(user, pass, dbname, host, port, sslmode)
+	m.connStr = MSSQLBuildQueryString(config.User, config.Pass, config.DBName, config.Host, config.Port, config.SSLMode)
 	m.conn, err = sql.Open("mssql", m.connStr)
 	if err != nil {
 		return nil, errors.Wrap(err, "sqlboiler-mssql failed to connect to database")
@@ -97,7 +91,7 @@ func (m *MSSQLDriver) Assemble(config drivers.Config) (dbinfo *drivers.DBInfo, e
 	}()
 
 	dbinfo = &drivers.DBInfo{
-		Schema: schema,
+		Schema: config.Schema,
 		Dialect: drivers.Dialect{
 			LQ: '[',
 			RQ: ']',
@@ -111,12 +105,40 @@ func (m *MSSQLDriver) Assemble(config drivers.Config) (dbinfo *drivers.DBInfo, e
 			UseCaseWhenExistsClause: true,
 		},
 	}
-	dbinfo.Tables, err = drivers.TablesConcurrently(m, schema, whitelist, blacklist, concurrency)
+	dbinfo.Tables, err = drivers.TablesConcurrently(m, config.Schema, config.WhiteList, config.BlackList, config.Concurrency)
 	if err != nil {
 		return nil, err
 	}
 
 	return dbinfo, err
+}
+
+func validateDriverConfig(config drivers.Config) error {
+	if config.User == "" {
+		return errors.New("missing user")
+	}
+	if config.DBName == "" {
+		return errors.New("missing dbname")
+	}
+	if config.Host == "" {
+		return errors.New("missing host")
+	}
+	return nil
+}
+
+func fillDefaultDriverConfig(config *drivers.Config) {
+	if config.Port == 0 {
+		config.Port = 1433
+	}
+	if config.SSLMode == "" {
+		config.SSLMode = "true"
+	}
+	if config.Schema == "" {
+		config.Schema = "dbo"
+	}
+	if config.Concurrency == 0 {
+		config.Concurrency = drivers.DefaultConcurrency
+	}
 }
 
 // MSSQLBuildQueryString builds a query string for MSSQL.

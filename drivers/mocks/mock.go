@@ -1,9 +1,11 @@
 package mocks
 
 import (
+	"github.com/friendsofgo/errors"
+	"github.com/volatiletech/strmangle"
+
 	"github.com/volatiletech/sqlboiler/v4/drivers"
 	"github.com/volatiletech/sqlboiler/v4/importers"
-	"github.com/volatiletech/strmangle"
 )
 
 func init() {
@@ -62,16 +64,23 @@ func (m *MockDriver) Assemble(config drivers.Config) (dbinfo *drivers.DBInfo, er
 		}
 	}()
 
-	schema := config.MustString(drivers.ConfigSchema)
-	whitelist, _ := config.StringSlice(drivers.ConfigWhitelist)
-	blacklist, _ := config.StringSlice(drivers.ConfigBlacklist)
+	if err := validateDriverConfig(config); err != nil {
+		panic(errors.Wrap(err, "validate driver config"))
+	}
 
-	dbinfo.Tables, err = drivers.TablesConcurrently(m, schema, whitelist, blacklist, 1)
+	dbinfo.Tables, err = drivers.TablesConcurrently(m, config.Schema, config.WhiteList, config.BlackList, 1)
 	if err != nil {
 		return nil, err
 	}
 
 	return dbinfo, err
+}
+
+func validateDriverConfig(config drivers.Config) error {
+	if config.Schema == "" {
+		return errors.New("missing schema")
+	}
+	return nil
 }
 
 // TableNames returns a list of mock table names
