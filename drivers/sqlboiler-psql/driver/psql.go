@@ -130,7 +130,7 @@ func (p *PostgresDriver) Assemble(config drivers.Config) (dbinfo *drivers.DBInfo
 			UseDefaultKeyword:    true,
 		},
 	}
-	dbinfo.Tables, err = drivers.TablesConcurrently(p, config.Schema, config.WhiteList, config.BlackList, config.Concurrency)
+	dbinfo.Tables, err = drivers.TablesConcurrently(p, config)
 	if err != nil {
 		return nil, err
 	}

@@ -105,7 +105,7 @@ func (m *MSSQLDriver) Assemble(config drivers.Config) (dbinfo *drivers.DBInfo, e
 			UseCaseWhenExistsClause: true,
 		},
 	}
-	dbinfo.Tables, err = drivers.TablesConcurrently(m, config.Schema, config.WhiteList, config.BlackList, config.Concurrency)
+	dbinfo.Tables, err = drivers.TablesConcurrently(m, config)
 	if err != nil {
 		return nil, err
 	}

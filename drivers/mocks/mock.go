@@ -68,7 +68,9 @@ func (m *MockDriver) Assemble(config drivers.Config) (dbinfo *drivers.DBInfo, er
 		panic(errors.Wrap(err, "validate driver config"))
 	}
 
-	dbinfo.Tables, err = drivers.TablesConcurrently(m, config.Schema, config.WhiteList, config.BlackList, 1)
+	config.Concurrency = 1
+
+	dbinfo.Tables, err = drivers.TablesConcurrently(m, config)
 	if err != nil {
 		return nil, err
 	}

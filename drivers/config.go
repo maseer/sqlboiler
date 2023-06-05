@@ -24,11 +24,22 @@ type Config struct {
 	AddEnumTypes   bool
 	EnumNullPrefix string
 
+	ForeignKeys []ForeignKey
+
 	// Concurrency defines amount of threads to use when loading tables info.
 	Concurrency int
 
 	// For mysql
 	TinyIntAsInt bool
+}
+
+// DefaultInt retrieves a non-zero int or the default value provided.
+func DefaultInt(value int, def int) int {
+	if value == 0 {
+		return def
+	}
+
+	return value
 }
 
 // DefaultEnv grabs a value from the environment or a default.

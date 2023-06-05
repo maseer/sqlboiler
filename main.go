@@ -212,6 +212,7 @@ func preRun(_ *cobra.Command, args []string) error {
 		Schema:         viper.GetString(driverName + ".schema"),
 		AddEnumTypes:   cmdConfig.AddEnumTypes,
 		EnumNullPrefix: cmdConfig.EnumNullPrefix,
+		ForeignKeys:    boilingcore.ConvertForeignKeys(viper.Get("foreign_keys")),
 		Concurrency:    viper.GetInt(driverName + ".concurrency"),
 		TinyIntAsInt:   viper.GetBool(driverName + ".tinyint_as_int"),
 	}

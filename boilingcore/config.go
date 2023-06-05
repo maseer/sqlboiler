@@ -290,29 +290,21 @@ func columnFromInterface(i interface{}) (col drivers.Column) {
 //
 // It also supports two different syntaxes, because of viper:
 //
-//	  [foreign_keys.fk_1]
-//	  table = "table_name"
-//	  column = "column_name"
-//		 nullable = false
-//	  unique = true
-//	  foreign_table = "foreign_table_name"
-//	  foreign_column = "foreign_column_name"
-//	  foreign_column_nullable = true
-//	  foreign_column_unique = false
+//	[foreign_keys.fk_1]
+//	table = "table_name"
+//	column = "column_name"
+//	foreign_table = "foreign_table_name"
+//	foreign_column = "foreign_column_name"
 //
 // Or alternatively (when toml key names or viper's
 // lowercasing of key names gets in the way):
 //
-//	  [[foreign_keys]]
-//	  name = "fk_1"
-//	  table = "table_name"
-//	  column = "column_name"
-//		 nullable = false
-//	  unique = true
-//	  foreign_table = "foreign_table_name"
-//	  foreign_column = "foreign_column_name"
-//	  foreign_column_nullable = true
-//	  foreign_column_unique = false
+//	[[foreign_keys]]
+//	name = "fk_1"
+//	table = "table_name"
+//	column = "column_name"
+//	foreign_table = "foreign_table_name"
+//	foreign_column = "foreign_column_name"
 func ConvertForeignKeys(i interface{}) (fks []drivers.ForeignKey) {
 	if i == nil {
 		return nil
@@ -322,15 +314,11 @@ func ConvertForeignKeys(i interface{}) (fks []drivers.ForeignKey) {
 		t := cast.ToStringMap(obj)
 
 		fk := drivers.ForeignKey{
-			Table:                 cast.ToString(t["table"]),
-			Name:                  name,
-			Column:                cast.ToString(t["column"]),
-			Nullable:              cast.ToBool(t["nullable"]),
-			Unique:                cast.ToBool(t["unique"]),
-			ForeignTable:          cast.ToString(t["foreign_table"]),
-			ForeignColumn:         cast.ToString(t["foreign_column"]),
-			ForeignColumnNullable: cast.ToBool(t["foreign_column_nullable"]),
-			ForeignColumnUnique:   cast.ToBool(t["foreign_column_unique"]),
+			Table:         cast.ToString(t["table"]),
+			Name:          name,
+			Column:        cast.ToString(t["column"]),
+			ForeignTable:  cast.ToString(t["foreign_table"]),
+			ForeignColumn: cast.ToString(t["foreign_column"]),
 		}
 		if err := validateForeignKey(fk); err != nil {
 			panic(errors.Errorf("invalid foreign key %s: %s", name, err))
