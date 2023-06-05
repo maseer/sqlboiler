@@ -254,3 +254,82 @@ func TestConvertTypeReplace(t *testing.T) {
 		t.Error("tables in types.match wrong:", got)
 	}
 }
+
+func TestConvertForeignKeys(t *testing.T) {
+	t.Parallel()
+
+	var intf interface{} = map[string]interface{}{
+		"fk_1": map[string]interface{}{
+			"table":                   "table_name",
+			"column":                  "column_name",
+			"nullable":                false,
+			"unique":                  true,
+			"foreign_table":           "foreign_table_name",
+			"foreign_column":          "foreign_column_name",
+			"foreign_column_nullable": true,
+			"foreign_column_unique":   false,
+		},
+	}
+
+	fks := ConvertForeignKeys(intf)
+	if len(fks) != 1 {
+		t.Error("should have one entry")
+	}
+
+	fk := fks[0]
+	expectedFK := drivers.ForeignKey{
+		Name:                  "fk_1",
+		Table:                 "table_name",
+		Column:                "column_name",
+		Nullable:              false,
+		Unique:                true,
+		ForeignTable:          "foreign_table_name",
+		ForeignColumn:         "foreign_column_name",
+		ForeignColumnNullable: true,
+		ForeignColumnUnique:   false,
+	}
+
+	if fk != expectedFK {
+		t.Error("value was wrong:", fk)
+	}
+}
+
+func TestConvertForeignKeysAltSyntax(t *testing.T) {
+	t.Parallel()
+
+	var intf interface{} = []interface{}{
+		map[string]interface{}{
+			"name":                    "fk_1",
+			"table":                   "table_name",
+			"column":                  "column_name",
+			"nullable":                false,
+			"unique":                  true,
+			"foreign_table":           "foreign_table_name",
+			"foreign_column":          "foreign_column_name",
+			"foreign_column_nullable": true,
+			"foreign_column_unique":   false,
+		},
+	}
+
+	fks := ConvertForeignKeys(intf)
+	if len(fks) != 1 {
+		t.Error("should have one entry")
+	}
+
+	fk := fks[0]
+	expectedFK := drivers.ForeignKey{
+		Name:                  "fk_1",
+		Table:                 "table_name",
+		Column:                "column_name",
+		Nullable:              false,
+		Unique:                true,
+		ForeignTable:          "foreign_table_name",
+		ForeignColumn:         "foreign_column_name",
+		ForeignColumnNullable: true,
+		ForeignColumnUnique:   false,
+	}
+
+	if fk != expectedFK {
+		t.Error("value was wrong:", fk)
+	}
+}
