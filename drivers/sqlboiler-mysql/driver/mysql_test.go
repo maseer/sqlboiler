@@ -16,9 +16,11 @@ import (
 	"fmt"
 	"os"
 	"os/exec"
+	"strconv"
 	"testing"
 
 	"github.com/stretchr/testify/require"
+
 	"github.com/volatiletech/sqlboiler/v4/drivers"
 )
 
@@ -50,6 +52,11 @@ func TestDriver(t *testing.T) {
 	}
 	t.Logf("mysql output:\n%s\n", out.Bytes())
 
+	port, err := strconv.Atoi(envPort)
+	if err != nil {
+		t.Fatal(err)
+	}
+
 	tests := []struct {
 		name       string
 		config     drivers.Config
@@ -58,27 +65,27 @@ func TestDriver(t *testing.T) {
 		{
 			name: "default",
 			config: drivers.Config{
-				"user":    envUsername,
-				"pass":    envPassword,
-				"dbname":  envDatabase,
-				"host":    envHostname,
-				"port":    envPort,
-				"sslmode": "false",
-				"schema":  envDatabase,
+				User:    envUsername,
+				Pass:    envPassword,
+				DBName:  envDatabase,
+				Host:    envHostname,
+				Port:    port,
+				SSLMode: "false",
+				Schema:  envDatabase,
 			},
 			goldenJson: "mysql.golden.json",
 		},
 		{
 			name: "enum_types",
 			config: drivers.Config{
-				"user":           envUsername,
-				"pass":           envPassword,
-				"dbname":         envDatabase,
-				"host":           envHostname,
-				"port":           envPort,
-				"sslmode":        "false",
-				"schema":         envDatabase,
-				"add-enum-types": true,
+				User:         envUsername,
+				Pass:         envPassword,
+				DBName:       envDatabase,
+				Host:         envHostname,
+				Port:         port,
+				SSLMode:      "false",
+				Schema:       envDatabase,
+				AddEnumTypes: true,
 			},
 			goldenJson: "mysql.golden.enums.json",
 		},

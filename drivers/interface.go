@@ -7,26 +7,12 @@ import (
 	"sync"
 
 	"github.com/friendsofgo/errors"
-	"github.com/volatiletech/sqlboiler/v4/importers"
 	"github.com/volatiletech/strmangle"
+
+	"github.com/volatiletech/sqlboiler/v4/importers"
 )
 
-// These constants are used in the config map passed into the driver
 const (
-	ConfigBlacklist      = "blacklist"
-	ConfigWhitelist      = "whitelist"
-	ConfigSchema         = "schema"
-	ConfigAddEnumTypes   = "add-enum-types"
-	ConfigEnumNullPrefix = "enum-null-prefix"
-	ConfigConcurrency    = "concurrency"
-
-	ConfigUser    = "user"
-	ConfigPass    = "pass"
-	ConfigHost    = "host"
-	ConfigPort    = "port"
-	ConfigDBName  = "dbname"
-	ConfigSSLMode = "sslmode"
-
 	// DefaultConcurrency defines the default amount of threads to use when loading tables info
 	DefaultConcurrency = 10
 )
@@ -104,19 +90,19 @@ type TableColumnTypeTranslator interface {
 	TranslateTableColumnType(c Column, tableName string) Column
 }
 
-// Tables returns the metadata for all tables, minus the tables
-// specified in the blacklist.
-func Tables(c Constructor, schema string, whitelist, blacklist []string) ([]Table, error) {
-	return TablesConcurrently(c, schema, whitelist, blacklist, 1)
-}
-
 // TablesConcurrently is a concurrent version of Tables. It returns the
 // metadata for all tables, minus the tables specified in the blacklist.
-func TablesConcurrently(c Constructor, schema string, whitelist, blacklist []string, concurrency int) ([]Table, error) {
+func TablesConcurrently(c Constructor, config Config) ([]Table, error) {
 	var err error
 	var ret []Table
 
-	ret, err = tables(c, schema, whitelist, blacklist, concurrency)
+	schema := config.Schema
+	whitelist := config.WhiteList
+	blacklist := config.BlackList
+	concurrency := DefaultInt(config.Concurrency, DefaultConcurrency)
+	foreignKeys := config.ForeignKeys
+
+	ret, err = tables(c, schema, whitelist, blacklist, foreignKeys, concurrency)
 	if err != nil {
 		return nil, errors.Wrap(err, "unable to load tables")
 	}
@@ -132,7 +118,7 @@ func TablesConcurrently(c Constructor, schema string, whitelist, blacklist []str
 	return ret, nil
 }
 
-func tables(c Constructor, schema string, whitelist, blacklist []string, concurrency int) ([]Table, error) {
+func tables(c Constructor, schema string, whitelist, blacklist []string, configForeignKeys []ForeignKey, concurrency int) ([]Table, error) {
 	var err error
 
 	names, err := c.TableNames(schema, whitelist, blacklist)
@@ -153,7 +139,7 @@ func tables(c Constructor, schema string, whitelist, blacklist []string, concurr
 		go func(i int, name string) {
 			defer wg.Done()
 			defer limiter.put()
-			t, err := table(c, schema, name, whitelist, blacklist)
+			t, err := table(c, schema, name, whitelist, blacklist, configForeignKeys)
 			if err != nil {
 				errs <- err
 				return
@@ -183,7 +169,7 @@ func tables(c Constructor, schema string, whitelist, blacklist []string, concurr
 }
 
 // table returns columns info for a given table
-func table(c Constructor, schema string, name string, whitelist, blacklist []string) (Table, error) {
+func table(c Constructor, schema string, name string, whitelist, blacklist []string, configForeignKeys []ForeignKey) (Table, error) {
 	var err error
 	t := &Table{
 		Name: name,
@@ -211,6 +197,7 @@ func table(c Constructor, schema string, name string, whitelist, blacklist []str
 	if t.FKeys, err = c.ForeignKeyInfo(schema, name); err != nil {
 		return Table{}, errors.Wrapf(err, "unable to fetch table fkey info (%s)", name)
 	}
+	t.FKeys = mergeWithForeignKeyConfigs(name, t.FKeys, configForeignKeys)
 
 	filterPrimaryKey(t, whitelist, blacklist)
 	filterForeignKeys(t, whitelist, blacklist)
@@ -218,6 +205,30 @@ func table(c Constructor, schema string, name string, whitelist, blacklist []str
 	setIsJoinTable(t)
 
 	return *t, nil
+}
+
+// mergeWithForeignKeyConfigs merges the foreign keys from the database with the foreign keys from the config.
+// The foreign keys from the config take precedence.
+func mergeWithForeignKeyConfigs(tableName string, fKeys []ForeignKey, configForeignKeys []ForeignKey) (mergedFKeys []ForeignKey) {
+	for _, fk := range configForeignKeys {
+		if fk.Table == tableName {
+			mergedFKeys = append(mergedFKeys, fk)
+		}
+	}
+
+	for _, fk := range fKeys {
+		isNew := true
+		for _, mergedFk := range mergedFKeys {
+			if mergedFk.Column == fk.Column {
+				isNew = false
+				break
+			}
+		}
+		if isNew {
+			mergedFKeys = append(mergedFKeys, fk)
+		}
+	}
+	return mergedFKeys
 }
 
 // views returns the metadata for all views, minus the views

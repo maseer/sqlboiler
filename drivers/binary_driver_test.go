@@ -46,7 +46,7 @@ func TestBinaryDriver(t *testing.T) {
 	name := bin.Name()
 
 	exe := binaryDriver(name)
-	got, err = exe.Assemble(nil)
+	got, err = exe.Assemble(Config{})
 	if err != nil {
 		t.Fatal(err)
 	}

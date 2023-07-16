@@ -115,7 +115,7 @@ func (m testMockDriver) UseIndexPlaceholders() bool {
 func TestTables(t *testing.T) {
 	t.Parallel()
 
-	tables, err := TablesConcurrently(testMockDriver{}, "public", nil, nil, 1)
+	tables, err := TablesConcurrently(testMockDriver{}, Config{Schema: "public", Concurrency: 1})
 	if err != nil {
 		t.Error(err)
 	}
@@ -342,6 +342,96 @@ func TestSetForeignKeyConstraints(t *testing.T) {
 	if !second.ForeignColumnUnique {
 		t.Error("should be unique")
 	}
+}
+
+func TestMergeWithForeignKeyConfigs(t *testing.T) {
+	t.Run("override current foreign key", func(t *testing.T) {
+		t.Parallel()
+		tableName := "table_1"
+		fKeys := []ForeignKey{
+			{
+				Column:        "col_1",
+				ForeignTable:  "foreign_table_1",
+				ForeignColumn: "foreign_column_1",
+			},
+		}
+
+		configFK := ForeignKey{
+			Name:          "fk_1",
+			Table:         "table_1",
+			Column:        "col_1",
+			ForeignTable:  "foreign_table_2",
+			ForeignColumn: "foreign_column_2",
+		}
+
+		got := mergeWithForeignKeyConfigs(tableName, fKeys, []ForeignKey{configFK})
+
+		if l := len(got); l != 1 {
+			t.Errorf("fkeys length should be 1, got %v", l)
+		}
+
+		fk := got[0]
+
+		if fk != configFK {
+			t.Errorf("expect %#v, got %#v", configFK, fk)
+		}
+
+	})
+
+	t.Run("append new foreign keys", func(t *testing.T) {
+		t.Parallel()
+		tableName := "table_1"
+		fKeys := []ForeignKey{
+			{
+				Column:        "col_1",
+				ForeignTable:  "foreign_table_1",
+				ForeignColumn: "foreign_column_1",
+			},
+		}
+
+		configFK := ForeignKey{
+			Name:          "fk_2",
+			Table:         "table_1",
+			Column:        "col_2",
+			ForeignTable:  "foreign_table_2",
+			ForeignColumn: "foreign_column_2",
+		}
+
+		got := mergeWithForeignKeyConfigs(tableName, fKeys, []ForeignKey{configFK})
+
+		if l := len(got); l != 2 {
+			t.Errorf("fkeys length should be 1, got %v", l)
+		}
+
+		first := got[0]
+		second := got[1]
+
+		if first != configFK {
+			t.Errorf("expect %#v, got %#v", configFK, first)
+		}
+		if second != fKeys[0] {
+			t.Errorf("expect %#v, got %#v", fKeys[0], second)
+		}
+	})
+
+	t.Run("not append if not same table", func(t *testing.T) {
+		tableName := "table_1"
+		var fKeys []ForeignKey
+
+		configFK := ForeignKey{
+			Name:          "fk_2",
+			Table:         "table_2",
+			Column:        "col_2",
+			ForeignTable:  "foreign_table_2",
+			ForeignColumn: "foreign_column_2",
+		}
+
+		got := mergeWithForeignKeyConfigs(tableName, fKeys, []ForeignKey{configFK})
+
+		if l := len(got); l != 0 {
+			t.Errorf("fkeys length should be 0, got %v", l)
+		}
+	})
 }
 
 func TestSetRelationships(t *testing.T) {

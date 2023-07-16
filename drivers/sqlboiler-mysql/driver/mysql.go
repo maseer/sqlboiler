@@ -11,9 +11,10 @@ import (
 
 	"github.com/friendsofgo/errors"
 	"github.com/go-sql-driver/mysql"
+	"github.com/volatiletech/strmangle"
+
 	"github.com/volatiletech/sqlboiler/v4/drivers"
 	"github.com/volatiletech/sqlboiler/v4/importers"
-	"github.com/volatiletech/strmangle"
 )
 
 //go:embed override
@@ -73,28 +74,16 @@ func (m *MySQLDriver) Assemble(config drivers.Config) (dbinfo *drivers.DBInfo, e
 		}
 	}()
 
-	user := config.MustString(drivers.ConfigUser)
-	pass, _ := config.String(drivers.ConfigPass)
-	dbname := config.MustString(drivers.ConfigDBName)
-	host := config.MustString(drivers.ConfigHost)
-	port := config.DefaultInt(drivers.ConfigPort, 3306)
-	sslmode := config.DefaultString(drivers.ConfigSSLMode, "true")
-
-	schema := dbname
-	whitelist, _ := config.StringSlice(drivers.ConfigWhitelist)
-	blacklist, _ := config.StringSlice(drivers.ConfigBlacklist)
-	concurrency := config.DefaultInt(drivers.ConfigConcurrency, drivers.DefaultConcurrency)
-
-	tinyIntAsIntIntf, ok := config["tinyint_as_int"]
-	if ok {
-		if b, ok := tinyIntAsIntIntf.(bool); ok {
-			m.tinyIntAsInt = b
-		}
+	if err := validateDriverConfig(config); err != nil {
+		panic(errors.Wrap(err, "validate driver config"))
 	}
+	fillDefaultDriverConfig(&config)
 
-	m.addEnumTypes, _ = config[drivers.ConfigAddEnumTypes].(bool)
-	m.enumNullPrefix = strmangle.TitleCase(config.DefaultString(drivers.ConfigEnumNullPrefix, "Null"))
-	m.connStr = MySQLBuildQueryString(user, pass, dbname, host, port, sslmode)
+	m.tinyIntAsInt = config.TinyIntAsInt
+
+	m.addEnumTypes = config.AddEnumTypes
+	m.enumNullPrefix = strmangle.TitleCase(config.EnumNullPrefix)
+	m.connStr = MySQLBuildQueryString(config.User, config.Pass, config.DBName, config.Host, config.Port, config.SSLMode)
 	m.conn, err = sql.Open("mysql", m.connStr)
 	if err != nil {
 		return nil, errors.Wrap(err, "sqlboiler-mysql failed to connect to database")
@@ -117,12 +106,43 @@ func (m *MySQLDriver) Assemble(config drivers.Config) (dbinfo *drivers.DBInfo, e
 		},
 	}
 
-	dbinfo.Tables, err = drivers.TablesConcurrently(m, schema, whitelist, blacklist, concurrency)
+	dbinfo.Tables, err = drivers.TablesConcurrently(m, config)
 	if err != nil {
 		return nil, err
 	}
 
 	return dbinfo, err
+}
+
+func validateDriverConfig(config drivers.Config) error {
+	if config.User == "" {
+		return errors.New("missing user")
+	}
+	if config.DBName == "" {
+		return errors.New("missing dbname")
+	}
+	if config.Host == "" {
+		return errors.New("missing host")
+	}
+	return nil
+}
+
+func fillDefaultDriverConfig(config *drivers.Config) {
+	if config.Port == 0 {
+		config.Port = 3306
+	}
+	if config.SSLMode == "" {
+		config.SSLMode = "true"
+	}
+	config.Schema = config.DBName
+
+	if config.EnumNullPrefix == "" {
+		config.EnumNullPrefix = "Null"
+	}
+
+	if config.Concurrency == 0 {
+		config.Concurrency = drivers.DefaultConcurrency
+	}
 }
 
 // MySQLBuildQueryString builds a query string for MySQL.

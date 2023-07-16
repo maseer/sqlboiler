@@ -404,7 +404,7 @@ func findTemplates(root, base string) (map[string]templateLoader, error) {
 }
 
 // initDBInfo retrieves information about the database
-func (s *State) initDBInfo(config map[string]interface{}) error {
+func (s *State) initDBInfo(config drivers.Config) error {
 	dbInfo, err := s.Driver.Assemble(config)
 	if err != nil {
 		return errors.Wrap(err, "unable to fetch table data")

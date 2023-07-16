@@ -15,6 +15,7 @@ import (
 	"fmt"
 	"os"
 	"os/exec"
+	"strconv"
 	"testing"
 
 	"github.com/stretchr/testify/require"
@@ -50,6 +51,10 @@ func TestAssemble(t *testing.T) {
 		t.Fatal(err)
 	}
 	t.Logf("psql output:\n%s\n", out.Bytes())
+	port, err := strconv.Atoi(envPort)
+	if err != nil {
+		t.Fatal(err)
+	}
 
 	tests := []struct {
 		name       string
@@ -59,27 +64,27 @@ func TestAssemble(t *testing.T) {
 		{
 			name: "default",
 			config: drivers.Config{
-				"user":    envUsername,
-				"pass":    envPassword,
-				"dbname":  envDatabase,
-				"host":    envHostname,
-				"port":    envPort,
-				"sslmode": "disable",
-				"schema":  "public",
+				User:    envUsername,
+				Pass:    envPassword,
+				DBName:  envDatabase,
+				Host:    envHostname,
+				Port:    port,
+				SSLMode: "disable",
+				Schema:  "public",
 			},
 			goldenJson: "psql.golden.json",
 		},
 		{
 			name: "enum_types",
 			config: drivers.Config{
-				"user":           envUsername,
-				"pass":           envPassword,
-				"dbname":         envDatabase,
-				"host":           envHostname,
-				"port":           envPort,
-				"sslmode":        "disable",
-				"schema":         "public",
-				"add-enum-types": true,
+				User:         envUsername,
+				Pass:         envPassword,
+				DBName:       envDatabase,
+				Host:         envHostname,
+				Port:         port,
+				SSLMode:      "disable",
+				Schema:       "public",
+				AddEnumTypes: true,
 			},
 			goldenJson: "psql.golden.enums.json",
 		},

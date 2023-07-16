@@ -9,9 +9,11 @@ import (
 	"io/fs"
 	"strings"
 
+	"github.com/friendsofgo/errors"
+	_ "modernc.org/sqlite"
+
 	"github.com/volatiletech/sqlboiler/v4/drivers"
 	"github.com/volatiletech/sqlboiler/v4/importers"
-	_ "modernc.org/sqlite"
 )
 
 //go:embed override
@@ -67,12 +69,12 @@ func (s SQLiteDriver) Assemble(config drivers.Config) (dbinfo *drivers.DBInfo, e
 		}
 	}()
 
-	dbname := config.MustString(drivers.ConfigDBName)
-	whitelist, _ := config.StringSlice(drivers.ConfigWhitelist)
-	blacklist, _ := config.StringSlice(drivers.ConfigBlacklist)
-	concurrency := config.DefaultInt(drivers.ConfigConcurrency, drivers.DefaultConcurrency)
+	if err := validateDriverConfig(config); err != nil {
+		panic(errors.Wrap(err, "validate driver config"))
+	}
+	fillDefaultDriverConfig(&config)
 
-	s.connStr = SQLiteBuildQueryString(dbname)
+	s.connStr = SQLiteBuildQueryString(config.DBName)
 	s.dbConn, err = sql.Open("sqlite", s.connStr)
 	if err != nil {
 		return nil, fmt.Errorf("sqlboiler-sqlite failed to connect to database: %w", err)
@@ -96,12 +98,25 @@ func (s SQLiteDriver) Assemble(config drivers.Config) (dbinfo *drivers.DBInfo, e
 		},
 	}
 
-	dbinfo.Tables, err = drivers.TablesConcurrently(s, "", whitelist, blacklist, concurrency)
+	dbinfo.Tables, err = drivers.TablesConcurrently(s, config)
 	if err != nil {
 		return nil, err
 	}
 
 	return dbinfo, err
+}
+
+func validateDriverConfig(config drivers.Config) error {
+	if config.DBName == "" {
+		return errors.New("missing dbname")
+	}
+	return nil
+}
+
+func fillDefaultDriverConfig(config *drivers.Config) {
+	if config.Concurrency == 0 {
+		config.Concurrency = drivers.DefaultConcurrency
+	}
 }
 
 // SQLiteBuildQueryString builds a query string for SQLite.

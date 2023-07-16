@@ -15,8 +15,9 @@ import (
 	"github.com/volatiletech/sqlboiler/v4/importers"
 
 	"github.com/friendsofgo/errors"
-	"github.com/volatiletech/sqlboiler/v4/drivers"
 	"github.com/volatiletech/strmangle"
+
+	"github.com/volatiletech/sqlboiler/v4/drivers"
 
 	// Side-effect import sql driver
 	_ "github.com/lib/pq"
@@ -87,22 +88,16 @@ func (p *PostgresDriver) Assemble(config drivers.Config) (dbinfo *drivers.DBInfo
 		}
 	}()
 
-	user := config.MustString(drivers.ConfigUser)
-	pass, _ := config.String(drivers.ConfigPass)
-	dbname := config.MustString(drivers.ConfigDBName)
-	host := config.MustString(drivers.ConfigHost)
-	port := config.DefaultInt(drivers.ConfigPort, 5432)
-	sslmode := config.DefaultString(drivers.ConfigSSLMode, "require")
-	schema := config.DefaultString(drivers.ConfigSchema, "public")
-	whitelist, _ := config.StringSlice(drivers.ConfigWhitelist)
-	blacklist, _ := config.StringSlice(drivers.ConfigBlacklist)
-	concurrency := config.DefaultInt(drivers.ConfigConcurrency, drivers.DefaultConcurrency)
+	if err := validateDriverConfig(config); err != nil {
+		panic(errors.Wrap(err, "validate driver config"))
+	}
+	fillDefaultDriverConfig(&config)
 
-	useSchema := schema != "public"
+	useSchema := config.Schema != "public"
 
-	p.addEnumTypes, _ = config[drivers.ConfigAddEnumTypes].(bool)
-	p.enumNullPrefix = strmangle.TitleCase(config.DefaultString(drivers.ConfigEnumNullPrefix, "Null"))
-	p.connStr = PSQLBuildQueryString(user, pass, dbname, host, port, sslmode)
+	p.addEnumTypes = config.AddEnumTypes
+	p.enumNullPrefix = strmangle.TitleCase(config.EnumNullPrefix)
+	p.connStr = PSQLBuildQueryString(config.User, config.Pass, config.DBName, config.Host, config.Port, config.SSLMode)
 	p.conn, err = sql.Open("postgres", p.connStr)
 	if err != nil {
 		return nil, errors.Wrap(err, "sqlboiler-psql failed to connect to database")
@@ -125,7 +120,7 @@ func (p *PostgresDriver) Assemble(config drivers.Config) (dbinfo *drivers.DBInfo
 	}
 
 	dbinfo = &drivers.DBInfo{
-		Schema: schema,
+		Schema: config.Schema,
 		Dialect: drivers.Dialect{
 			LQ: '"',
 			RQ: '"',
@@ -135,12 +130,45 @@ func (p *PostgresDriver) Assemble(config drivers.Config) (dbinfo *drivers.DBInfo
 			UseDefaultKeyword:    true,
 		},
 	}
-	dbinfo.Tables, err = drivers.TablesConcurrently(p, schema, whitelist, blacklist, concurrency)
+	dbinfo.Tables, err = drivers.TablesConcurrently(p, config)
 	if err != nil {
 		return nil, err
 	}
 
 	return dbinfo, err
+}
+
+func validateDriverConfig(config drivers.Config) error {
+	if config.User == "" {
+		return errors.New("missing user")
+	}
+	if config.DBName == "" {
+		return errors.New("missing dbname")
+	}
+	if config.Host == "" {
+		return errors.New("missing host")
+	}
+	return nil
+}
+
+func fillDefaultDriverConfig(config *drivers.Config) {
+	if config.Port == 0 {
+		config.Port = 5432
+	}
+	if config.SSLMode == "" {
+		config.SSLMode = "require"
+	}
+	if config.Schema == "" {
+		config.Schema = "public"
+	}
+
+	if config.Concurrency == 0 {
+		config.Concurrency = drivers.DefaultConcurrency
+	}
+
+	if config.EnumNullPrefix == "" {
+		config.EnumNullPrefix = "Null"
+	}
 }
 
 // PSQLBuildQueryString builds a query string.
